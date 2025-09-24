@@ -32,6 +32,7 @@ interface CommonFiltersBarProps {
   dataMaskSelected: DataMaskStateWithId;
   filterValues: (Filter | Divider)[];
   isInitialized: boolean;
+  showProgress?: boolean;
   onSelectionChange: (
     filter: Pick<Filter, 'id'> & Partial<Filter>,
     dataMask: Partial<DataMask>,
