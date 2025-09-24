@@ -55,6 +55,7 @@ export enum VizType {
   Step = 'echarts_timeseries_step',
   Sunburst = 'sunburst_v2',
   Table = 'table',
+  RemitaBigNumberMulti = 'remita_big_number_multi',
   TableAgGrid = 'ag-grid-table',
   TimePivot = 'time_pivot',
   TimeTable = 'time_table',
