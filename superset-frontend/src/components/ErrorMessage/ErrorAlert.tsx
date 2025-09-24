@@ -17,7 +17,7 @@
  * under the License.
  */
 import { useState } from 'react';
-import { t, useTheme } from '@superset-ui/core';
+import { t, useTheme, FeatureFlag, isFeatureEnabled } from '@superset-ui/core';
 import {
   Alert,
   Icons,
@@ -72,18 +72,28 @@ export const ErrorAlert: React.FC<ErrorAlertProps> = ({
     fontFamily: theme.fontFamilyCode,
     margin: `${theme.sizeUnit}px 0`,
   };
+  // Custom feature flag to control whether to show expandable error details
+  const showSeeMoreFeature = isFeatureEnabled(FeatureFlag.EnableSeeMoreErrors) ?? true;
+  let localErrorType = errorType;
+  let localDescription = description;
+  if (!showSeeMoreFeature) {
+    localDescription = '';
+    localErrorType = t('Error loading data');
+  }
+  const compactMode = showSeeMoreFeature ? true : compact;
+
   const renderDescription = () => (
     <div>
       {message && <div>{message}</div>}
-      {description && (
+      {localDescription && (
         <Typography.Paragraph
           style={descriptionPre ? preStyle : {}}
           data-testid="description"
         >
-          {description}
+          {localDescription}
         </Typography.Paragraph>
       )}
-      {descriptionDetails && (
+      {showSeeMoreFeature && descriptionDetails && (
         <div>
           {isDescriptionVisible && (
             <Typography.Paragraph style={descriptionPre ? preStyle : {}}>
@@ -113,17 +123,17 @@ export const ErrorAlert: React.FC<ErrorAlertProps> = ({
     />
   );
 
-  if (compact) {
+  if (compactMode) {
     return (
       <>
-        <Tooltip title={`${errorType}: ${message}`}>
+        <Tooltip title={`${localErrorType}: ${message}`}>
           <span role="button" onClick={() => setShowModal(true)} tabIndex={0}>
             {renderTrigger()}
           </span>
         </Tooltip>
         <Modal
-          name={errorType}
-          title={errorType}
+          name={localErrorType}
+          title={localErrorType}
           show={showModal}
           onHide={() => setShowModal(false)}
           footer={null}
