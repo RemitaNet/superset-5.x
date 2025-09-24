@@ -37,6 +37,8 @@ import {
   isNativeFilter,
   usePrevious,
   styled,
+  isFeatureEnabled,
+  FeatureFlag,
 } from '@superset-ui/core';
 import { Constants } from '@superset-ui/core/components';
 import { useHistory } from 'react-router-dom';
@@ -276,16 +278,51 @@ const FilterBar: FC<FiltersBarProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboardId, dataMaskAppliedText, history, updateKey, tabId]);
 
+  const progressEnabled = isFeatureEnabled(FeatureFlag.FilterBarProgressIndicator);
+  const [applyProgress, setApplyProgress] = useState(false);
+  const progressSinceRef = useRef<number | null>(null);
+
+  const startApplyProgress = useCallback(() => {
+    if (!progressEnabled) return;
+    setApplyProgress(true);
+    progressSinceRef.current = Date.now();
+  }, [progressEnabled]);
+
+  const stopApplyProgressWithMin = useCallback(() => {
+    if (!applyProgress) return;
+    const MIN_VISIBLE_MS = 400;
+    const since = progressSinceRef.current ?? Date.now();
+    const elapsed = Date.now() - since;
+    const delay = Math.max(0, MIN_VISIBLE_MS - elapsed);
+    window.setTimeout(() => {
+      setApplyProgress(false);
+      progressSinceRef.current = null;
+    }, delay);
+  }, [applyProgress]);
+
   const handleApply = useCallback(() => {
     dispatch(logEvent(LOG_ACTIONS_CHANGE_DASHBOARD_FILTER, {}));
     setUpdateKey(1);
+    startApplyProgress();
 
     Object.entries(dataMaskSelected).forEach(([filterId, dataMask]) => {
       if (dataMask) {
         dispatch(updateDataMask(filterId, dataMask));
       }
     });
-  }, [dataMaskSelected, dispatch]);
+  }, [dataMaskSelected, dispatch, startApplyProgress]);
+
+  // Hide progress when applied state matches selection again
+  useEffect(() => {
+    const isApplyDisabled = checkIsApplyDisabled(
+      dataMaskSelected,
+      dataMaskApplied,
+      filtersInScope.filter(isNativeFilter),
+    );
+    if (applyProgress && isApplyDisabled) {
+      stopApplyProgressWithMin();
+    }
+  }, [applyProgress, dataMaskSelected, dataMaskApplied, filtersInScope]);
 
   const handleClearAll = useCallback(() => {
     const newClearAllTriggers = { ...clearAllTriggers };
@@ -320,6 +357,20 @@ const FilterBar: FC<FiltersBarProps> = ({
   );
   const isInitialized = useInitialization();
 
+  // Auto-apply filters and hide apply button when enabled via feature flag
+  const debouncedAutoApply = useMemo(
+    () => debounce(() => handleApply(), Constants.SLOW_DEBOUNCE),
+    [handleApply],
+  );
+  useEffect(() => {
+    if (isFeatureEnabled(FeatureFlag.AutoApplyDashboardFilters)) {
+      if (!isApplyDisabled) {
+        debouncedAutoApply();
+      }
+    }
+  }, [dataMaskSelected, isApplyDisabled, debouncedAutoApply]);
+  useEffect(() => () => debouncedAutoApply.cancel(), [debouncedAutoApply]);
+
   const actions = useMemo(
     () => (
       <ActionButtons
@@ -330,6 +381,7 @@ const FilterBar: FC<FiltersBarProps> = ({
         dataMaskSelected={dataMaskSelected}
         dataMaskApplied={dataMaskApplied}
         isApplyDisabled={isApplyDisabled}
+        showProgress={applyProgress}
       />
     ),
     [
@@ -348,6 +400,7 @@ const FilterBar: FC<FiltersBarProps> = ({
       <Horizontal
         actions={actions}
         canEdit={canEdit}
+        showProgress={applyProgress}
         dashboardId={dashboardId}
         dataMaskSelected={dataMaskSelected}
         filterValues={filterValues}

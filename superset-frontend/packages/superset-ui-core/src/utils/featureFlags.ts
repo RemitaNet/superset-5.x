@@ -22,6 +22,8 @@ import logger from './logging';
 // check into source control. We're hardcoding the supported flags for now.
 export enum FeatureFlag {
   // PLEASE KEEP THE LIST SORTED ALPHABETICALLY
+  AutoApplyDashboardFilters = 'AUTO_APPLY_DASHBOARD_FILTERS',
+  FilterBarProgressIndicator = 'FILTERBAR_PROGRESS_INDICATOR',
   AlertsAttachReports = 'ALERTS_ATTACH_REPORTS',
   AlertReports = 'ALERT_REPORTS',
   AlertReportTabs = 'ALERT_REPORT_TABS',

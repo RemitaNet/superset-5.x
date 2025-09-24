@@ -16,18 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { styled } from '@superset-ui/core';
+import { css, styled } from '@superset-ui/core';
 import { Progress as AntdProgress } from 'antd';
 import { ProgressProps } from 'antd/es/progress/progress';
 
 export interface ProgressBarProps extends ProgressProps {
   striped?: boolean;
+  animated?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const ProgressBar = styled(({ striped, ...props }: ProgressBarProps) => (
+const ProgressBar = styled(({ striped, animated, ...props }: ProgressBarProps) => (
   <AntdProgress data-test="progress-bar" {...props} />
-))`
+))<ProgressBarProps>`
   position: static;
   .ant-progress-inner {
     position: static;
@@ -36,15 +37,35 @@ const ProgressBar = styled(({ striped, ...props }: ProgressBarProps) => (
     position: static;
     ${({ striped }) =>
       striped &&
-      `
-        background-image: linear-gradient(45deg,
-            rgba(255, 255, 255, 0.15) 25%,
-            transparent 25%, transparent 50%,
-            rgba(255, 255, 255, 0.15) 50%,
-            rgba(255, 255, 255, 0.15) 75%,
-            transparent 75%, transparent) !important;
+      css`
+        background-image: linear-gradient(
+          45deg,
+          rgba(255, 255, 255, 0.15) 25%,
+          transparent 25%,
+          transparent 50%,
+          rgba(255, 255, 255, 0.15) 50%,
+          rgba(255, 255, 255, 0.15) 75%,
+          transparent 75%,
+          transparent
+        ) !important;
         background-size: 1rem 1rem !important;
-        `};
+      `};
+    ${({ animated }) =>
+      animated &&
+      css`
+        animation: superset-progress-stripes 1s linear infinite;
+        background-size: 1rem 1rem !important;
+        background-position: 0 0;
+      `};
+  }
+
+  @keyframes superset-progress-stripes {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 2rem 0;
+    }
   }
 `;
 
