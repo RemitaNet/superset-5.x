@@ -548,30 +548,14 @@ def get_spa_template_context(
     default_theme = theme_data.get("default", {})
     theme_tokens = default_theme.get("token", {})
 
-    # Determine spinner content with precedence:
-    # 1) Config override (if enabled)
-    # 2) Theme SVG token
-    # 3) Theme URL token
-    # 4) Default SVG bundled with Superset
+    # Determine spinner content with precedence: theme SVG > theme URL > default SVG
     spinner_svg = None
-
-    # Config override when feature flag is enabled
-    if is_feature_enabled("CUSTOM_BRAND_ASSETS"):
-        # Prefer inline SVG when provided
-        custom_svg = app.config.get("LOADING_ICON_SVG")
-        custom_url = app.config.get("LOADING_ICON_URL")
-        if isinstance(custom_svg, str) and custom_svg.strip():
-            spinner_svg = utils.sanitize_svg_content(custom_svg)
-        elif isinstance(custom_url, str) and custom_url.strip():
-            theme_tokens["brandSpinnerUrl"] = utils.sanitize_url(custom_url)
-
-    if spinner_svg is None:
-        if theme_tokens.get("brandSpinnerSvg"):
-            # Use custom SVG from theme
-            spinner_svg = theme_tokens["brandSpinnerSvg"]
-        elif not theme_tokens.get("brandSpinnerUrl"):
-            # No custom URL either, use default SVG
-            spinner_svg = get_default_spinner_svg()
+    if theme_tokens.get("brandSpinnerSvg"):
+        # Use custom SVG from theme
+        spinner_svg = theme_tokens["brandSpinnerSvg"]
+    elif not theme_tokens.get("brandSpinnerUrl"):
+        # No custom URL either, use default SVG
+        spinner_svg = get_default_spinner_svg()
 
     return {
         "entry": entry,

@@ -116,29 +116,6 @@ PACKAGE_JSON_FILE = str(files("superset") / "static/assets/package.json")
 # },
 FAVICONS = [{"href": "/static/assets/images/favicon.png"}]
 
-# Configuration for error page assets (used when feature flag is enabled)
-# These allow customizing favicon and images on 404/500 error pages without
-# rebuilding frontend assets.
-# Example override in superset_config.py:
-# ERROR_PAGE_ASSETS = {
-#     "favicon": "/static/assets/images/favicon.png",
-#     "image_404": "/static/assets/images/error404.png",
-#     "image_500": "/static/assets/images/error500.png",
-# }
-ERROR_PAGE_ASSETS: dict[str, str] = {
-    "favicon": "/static/assets/images/favicon.png",
-    "image_404": "/static/assets/images/error404.png",
-    "image_500": "/static/assets/images/error500.png",
-}
-
-# Optional overrides for the loading spinner displayed before the SPA bootstraps
-# If CUSTOM_BRAND_ASSETS feature flag is enabled, these values will take priority
-# over theme tokens for the initial spinner.
-# - LOADING_ICON_SVG: inline SVG string content
-# - LOADING_ICON_URL: URL/path to an image to use as spinner (png/gif/svg)
-LOADING_ICON_SVG: str | None = None
-LOADING_ICON_URL: str | None = None
-
 
 def _try_json_readversion(filepath: str) -> str | None:
     try:
@@ -574,10 +551,6 @@ DEFAULT_FEATURE_FLAGS: dict[str, bool] = {
     "ALLOW_FULL_CSV_EXPORT": False,
     "ALLOW_ADHOC_SUBQUERY": False,
     "USE_ANALOGOUS_COLORS": False,
-    # Automatically apply native dashboard filters and hide the Apply button
-    "AUTO_APPLY_DASHBOARD_FILTERS": True,
-    # Show a progress indicator on filter bar while charts/filters refresh
-    "FILTERBAR_PROGRESS_INDICATOR": True,
     # Apply RLS rules to SQL Lab queries. This requires parsing and manipulating the
     # query, and might break queries and/or allow users to bypass RLS. Use with care!
     "RLS_IN_SQLLAB": False,
@@ -655,10 +628,6 @@ DEFAULT_FEATURE_FLAGS: dict[str, bool] = {
     "MATRIXIFY": False,
     # Force garbage collection after every request
     "FORCE_GARBAGE_COLLECTION_AFTER_EVERY_REQUEST": False,
-    # Single flag to enable config-driven branding assets
-    # - Error pages (404/500) icon and images from ERROR_PAGE_ASSETS
-    # - Pre-bootstrap loading spinner from LOADING_ICON_SVG/LOADING_ICON_URL
-    "CUSTOM_BRAND_ASSETS": False,
 }
 
 # ------------------------------

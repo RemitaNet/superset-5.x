@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import dataclasses
-import re
 import functools
 import logging
 import typing
@@ -36,7 +35,6 @@ from sqlalchemy import exc
 from werkzeug.exceptions import HTTPException
 
 from superset import appbuilder
-from superset.extensions import feature_flag_manager
 from superset.commands.exceptions import CommandException, CommandInvalidError
 from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.exceptions import (
@@ -157,57 +155,6 @@ def set_app_error_handlers(app: Flask) -> None:  # noqa: C901
 
         return redirect(appbuilder.get_url_for_login)
 
-    def _customize_error_html(content: str, code: int) -> str:
-        """Inject custom asset URLs into static error HTML when enabled.
-
-        This preserves the existing static HTML content and only swaps the
-        favicon href and the main image src for 404/500.
-        """
-        try:
-            assets = app.config.get("ERROR_PAGE_ASSETS", {})
-
-            # Resolve favicon: ERROR_PAGE_ASSETS.favicon -> FAVICONS[0].href -> default
-            favicon = assets.get("favicon") or (
-                (app.config.get("FAVICONS") or [{}])[0].get("href")
-                if app.config.get("FAVICONS")
-                else None
-            )
-            if not favicon:
-                favicon = "/static/assets/images/favicon.png"
-            favicon = utils.sanitize_url(str(favicon))
-
-            # Resolve image src based on code
-            image_key = "image_404" if code == 404 else "image_500"
-            default_img = (
-                "/static/assets/images/error404.png"
-                if code == 404
-                else "/static/assets/images/error500.png"
-            )
-            image_src = utils.sanitize_url(str(assets.get(image_key) or default_img))
-
-            # Replace favicon href in <link rel="icon" ... href="...">
-            content = re.sub(
-                r'(<link[^>]*rel="(?:icon|shortcut icon)"[^>]*href=")[^"]+(\")',
-                rf'\1{favicon}\2',
-                content,
-                count=1,
-                flags=re.IGNORECASE,
-            )
-
-            # Replace the error image src, using the alt attribute if present
-            alt_text = "404" if code == 404 else "500"
-            content = re.sub(
-                rf'(<img[^>]*alt="{alt_text}"[^>]*src=")[^"]+(\")',
-                rf'\1{image_src}\2',
-                content,
-                count=1,
-                flags=re.IGNORECASE,
-            )
-
-            return content
-        except Exception:  # if any replacement fails, return original content
-            return content
-
     @app.errorhandler(HTTPException)
     def show_http_exception(ex: HTTPException) -> FlaskResponse:
         logger.warning("HTTPException", exc_info=True)
@@ -218,11 +165,6 @@ def set_app_error_handlers(app: Flask) -> None:  # noqa: C901
             and ex.code in {404, 500}
         ):
             path = files("superset") / f"static/assets/{ex.code}.html"
-            if feature_flag_manager.is_feature_enabled("CUSTOM_BRAND_ASSETS"):
-                with open(path, "r", encoding="utf-8") as f:
-                    html = f.read()
-                html = _customize_error_html(html, int(ex.code or 500))
-                return Response(html, mimetype="text/html; charset=utf-8"), int(ex.code or 500)
             return send_file(path, max_age=0), ex.code
 
         return json_error_response(
@@ -247,11 +189,6 @@ def set_app_error_handlers(app: Flask) -> None:  # noqa: C901
 
         if "text/html" in request.accept_mimetypes and not app.config["DEBUG"]:
             path = files("superset") / "static/assets/500.html"
-            if feature_flag_manager.is_feature_enabled("CUSTOM_BRAND_ASSETS"):
-                with open(path, "r", encoding="utf-8") as f:
-                    html = f.read()
-                html = _customize_error_html(html, 500)
-                return Response(html, mimetype="text/html; charset=utf-8"), 500
             return send_file(path, max_age=0), 500
 
         extra = ex.normalized_messages() if isinstance(ex, CommandInvalidError) else {}
@@ -276,11 +213,6 @@ def set_app_error_handlers(app: Flask) -> None:  # noqa: C901
 
         if "text/html" in request.accept_mimetypes and not app.config["DEBUG"]:
             path = files("superset") / "static/assets/500.html"
-            if feature_flag_manager.is_feature_enabled("CUSTOM_BRAND_ASSETS"):
-                with open(path, "r", encoding="utf-8") as f:
-                    html = f.read()
-                html = _customize_error_html(html, 500)
-                return Response(html, mimetype="text/html; charset=utf-8"), 500
             return send_file(path, max_age=0), 500
 
         return json_error_response(
