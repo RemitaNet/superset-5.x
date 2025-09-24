@@ -17,9 +17,10 @@
  * under the License.
  */
 
-import { FC, memo, useMemo } from 'react';
-import { DataMaskStateWithId, styled, t } from '@superset-ui/core';
+import { FC, memo, useMemo, useEffect, useRef, useState } from 'react';
+import { DataMaskStateWithId, styled, t, SupersetTheme, css, useTheme } from '@superset-ui/core';
 import { Loading } from '@superset-ui/core/components';
+import ProgressBar from '@superset-ui/core/components/ProgressBar';
 import { RootState } from 'src/dashboard/types';
 import { useChartLayoutItems } from 'src/dashboard/util/useChartLayoutItems';
 import { useChartIds } from 'src/dashboard/util/charts/useChartIds';
@@ -32,9 +33,8 @@ import crossFiltersSelector from './CrossFilters/selectors';
 
 const HorizontalBar = styled.div`
   ${({ theme }) => `
-    padding: ${theme.sizeUnit * 3}px ${theme.sizeUnit * 2}px ${
-      theme.sizeUnit * 3
-    }px ${theme.sizeUnit * 4}px;
+    position: relative;
+    padding: 0 ${theme.sizeUnit * 2}px 0 ${theme.sizeUnit * 4}px;
     background: ${theme.colorBgBase};
     box-shadow: inset 0px -2px 2px -1px ${theme.colorSplit};
   `}
@@ -68,6 +68,7 @@ const HorizontalFilterBar: FC<HorizontalBarProps> = ({
   dataMaskSelected,
   filterValues,
   isInitialized,
+  showProgress,
   onSelectionChange,
   clearAllTriggers,
   onClearAllComplete,
@@ -75,6 +76,52 @@ const HorizontalFilterBar: FC<HorizontalBarProps> = ({
   const dataMask = useSelector<RootState, DataMaskStateWithId>(
     state => state.dataMask,
   );
+  const theme = useTheme();
+  const showProgressRaw = !!showProgress;
+  const hideRef = useRef<number | null>(null);
+  const [progressVisible, setProgressVisible] = useState(false);
+  const [holdRender, setHoldRender] = useState(false);
+  const prevVisible = useRef(false);
+  const visibleSinceRef = useRef<number | null>(null);
+  const fallbackRef = useRef<number | null>(null);
+  const initialFallbackDone = useRef(false);
+  useEffect(() => {
+    const MIN_VISIBLE_MS = 400;
+    if (hideRef.current) window.clearTimeout(hideRef.current);
+    if (showProgressRaw && fallbackRef.current) {
+      window.clearTimeout(fallbackRef.current);
+      fallbackRef.current = null;
+    }
+    if (showProgressRaw) {
+      if (!progressVisible) {
+        setProgressVisible(true);
+        visibleSinceRef.current = Date.now();
+      }
+    } else if (progressVisible) {
+      const since = visibleSinceRef.current ?? Date.now();
+      const elapsed = Date.now() - since;
+      const delay = Math.max(0, MIN_VISIBLE_MS - elapsed);
+      hideRef.current = window.setTimeout(() => {
+        setProgressVisible(false);
+        visibleSinceRef.current = null;
+      }, delay);
+    }
+    return () => {
+      if (hideRef.current) window.clearTimeout(hideRef.current);
+    };
+  }, [showProgressRaw, progressVisible]);
+
+  // No initial fallback; only show when filters are applied
+
+  useEffect(() => {
+    if (!progressVisible && prevVisible.current) {
+      setHoldRender(true);
+      const t = window.setTimeout(() => setHoldRender(false), 220);
+      return () => window.clearTimeout(t);
+    }
+    prevVisible.current = progressVisible;
+    if (progressVisible) setHoldRender(true);
+  }, [progressVisible]);
   const chartIds = useChartIds();
   const chartLayoutItems = useChartLayoutItems();
   const verboseMaps = useChartsVerboseMaps();
@@ -117,6 +164,32 @@ const HorizontalFilterBar: FC<HorizontalBarProps> = ({
           </>
         )}
       </HorizontalBarContent>
+      {(progressVisible || holdRender) && (
+        <div
+          className="filter-progress"
+          css={css`
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+            padding: 0 ${16}px 0;
+            margin: 0;
+            opacity: ${progressVisible ? 1 : 0};
+            transition: opacity 0.2s ease-in-out;
+          `}
+        >
+          <ProgressBar
+            percent={99}
+            status="active"
+            showInfo={false}
+            strokeWidth={3}
+            strokeColor={theme.colorPrimary}
+            striped
+            animated
+          />
+        </div>
+      )}
     </HorizontalBar>
   );
 };

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import {
   css,
   DataMaskState,
@@ -27,10 +27,13 @@ import {
   styled,
 } from '@superset-ui/core';
 import { Button } from '@superset-ui/core/components';
+import ProgressBar from '@superset-ui/core/components/ProgressBar';
 import { OPEN_FILTER_BAR_WIDTH } from 'src/dashboard/constants';
 import tinycolor from 'tinycolor2';
 import { FilterBarOrientation } from 'src/dashboard/types';
 import { getFilterBarTestId } from '../utils';
+import { useTheme } from '@superset-ui/core';
+import { isFeatureEnabled, FeatureFlag } from '@superset-ui/core';
 
 interface ActionButtonsProps {
   width?: number;
@@ -40,6 +43,7 @@ interface ActionButtonsProps {
   dataMaskApplied: DataMaskStateWithId;
   isApplyDisabled: boolean;
   filterBarOrientation?: FilterBarOrientation;
+  showProgress?: boolean;
 }
 
 const containerStyle = (theme: SupersetTheme) => css`
@@ -93,6 +97,7 @@ const horizontalStyle = (theme: SupersetTheme) => css`
 
 const ButtonsContainer = styled.div<{ isVertical: boolean; width: number }>`
   ${({ theme, isVertical, width }) => css`
+    position: relative;
     ${containerStyle(theme)};
     ${isVertical ? verticalStyle(theme, width) : horizontalStyle(theme)};
   `}
@@ -106,7 +111,9 @@ const ActionButtons = ({
   dataMaskSelected,
   isApplyDisabled,
   filterBarOrientation = FilterBarOrientation.Vertical,
+  showProgress,
 }: ActionButtonsProps) => {
+  const theme = useTheme();
   const isClearAllEnabled = useMemo(
     () =>
       Object.values(dataMaskApplied).some(
@@ -118,6 +125,48 @@ const ActionButtons = ({
     [dataMaskApplied, dataMaskSelected],
   );
   const isVertical = filterBarOrientation === FilterBarOrientation.Vertical;
+  const progressEnabled = isFeatureEnabled(FeatureFlag.FilterBarProgressIndicator);
+  const showProgressRaw = progressEnabled && isVertical && !!showProgress;
+  // immediate show + minimum visible duration to ensure perceptibility
+  const hideRef = useRef<number | null>(null);
+  const visibleSinceRef = useRef<number | null>(null);
+  const [progressVisible, setProgressVisible] = useState(false);
+  useEffect(() => {
+    const MIN_VISIBLE_MS = 400;
+    // clear any pending hide
+    if (hideRef.current) window.clearTimeout(hideRef.current);
+
+    if (showProgressRaw) {
+      if (!progressVisible) {
+        setProgressVisible(true);
+        visibleSinceRef.current = Date.now();
+      }
+    } else if (progressVisible) {
+      const since = visibleSinceRef.current ?? Date.now();
+      const elapsed = Date.now() - since;
+      const delay = Math.max(0, MIN_VISIBLE_MS - elapsed);
+      hideRef.current = window.setTimeout(() => {
+        setProgressVisible(false);
+        visibleSinceRef.current = null;
+      }, delay);
+    }
+    return () => {
+      if (hideRef.current) window.clearTimeout(hideRef.current);
+    };
+  }, [showProgressRaw, progressVisible]);
+
+  // keep element mounted for fade-out when hiding
+  const [holdRender, setHoldRender] = useState(false);
+  const prevVisible = useRef(false);
+  useEffect(() => {
+    if (!progressVisible && prevVisible.current) {
+      setHoldRender(true);
+      const t = window.setTimeout(() => setHoldRender(false), 220);
+      return () => window.clearTimeout(t);
+    }
+    prevVisible.current = progressVisible;
+    if (progressVisible) setHoldRender(true);
+  }, [progressVisible]);
 
   return (
     <ButtonsContainer
@@ -125,16 +174,43 @@ const ActionButtons = ({
       width={width}
       data-test="filterbar-action-buttons"
     >
-      <Button
-        disabled={isApplyDisabled}
-        buttonStyle="primary"
-        htmlType="submit"
-        className="filter-apply-button"
-        onClick={onApply}
-        {...getFilterBarTestId('apply-button')}
-      >
-        {isVertical ? t('Apply filters') : t('Apply')}
-      </Button>
+      {(progressVisible || holdRender) && (
+        <div
+          className="filter-progress"
+          css={css`
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            z-index: 1;
+            margin-top: ${theme.sizeUnit}px;
+            opacity: ${progressVisible ? 1 : 0};
+            transition: opacity 0.2s ease-in-out;
+          `}
+        >
+          <ProgressBar
+            percent={99}
+            status="active"
+            showInfo={false}
+            strokeWidth={3}
+            strokeColor={theme.colorPrimary}
+            striped
+            animated
+          />
+        </div>
+      )}
+      {!isFeatureEnabled(FeatureFlag.AutoApplyDashboardFilters) && (
+        <Button
+          disabled={isApplyDisabled}
+          buttonStyle="primary"
+          htmlType="submit"
+          className="filter-apply-button"
+          onClick={onApply}
+          {...getFilterBarTestId('apply-button')}
+        >
+          {isVertical ? t('Apply filters') : t('Apply')}
+        </Button>
+      )}
       <Button
         disabled={!isClearAllEnabled}
         buttonStyle="link"
