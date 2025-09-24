@@ -32,6 +32,8 @@ import ParallelCoordinatesChartPlugin from '@superset-ui/legacy-plugin-chart-par
 import PartitionChartPlugin from '@superset-ui/legacy-plugin-chart-partition';
 import RoseChartPlugin from '@superset-ui/legacy-plugin-chart-rose';
 import TableChartPlugin from '@superset-ui/plugin-chart-table';
+import RemitaTableChartPlugin from '@superset-ui/plugin-chart-remita-table';
+import RemitaBigNumberChartPlugin from '@superset-ui/plugin-chart-remita-bignumber';
 import { WordCloudChartPlugin } from '@superset-ui/plugin-chart-word-cloud';
 import WorldMapChartPlugin from '@superset-ui/legacy-plugin-chart-world-map';
 import {
@@ -45,6 +47,7 @@ import { CartodiagramPlugin } from '@superset-ui/plugin-chart-cartodiagram';
 import {
   BigNumberChartPlugin,
   BigNumberTotalChartPlugin,
+  BigNumberMultiChartPlugin,
   EchartsPieChartPlugin,
   EchartsBoxPlotChartPlugin,
   EchartsAreaChartPlugin,
@@ -107,6 +110,10 @@ export default class MainPreset extends Preset {
         new BigNumberTotalChartPlugin().configure({
           key: VizType.BigNumberTotal,
         }),
+        // Remita: Multi-metric Big Number
+        new RemitaBigNumberChartPlugin().configure({
+          key: VizType.RemitaBigNumberMulti,
+        }),
         new EchartsBoxPlotChartPlugin().configure({ key: VizType.BoxPlot }),
         new BubbleChartPlugin().configure({ key: VizType.LegacyBubble }),
         new BulletChartPlugin().configure({ key: VizType.Bullet }),
@@ -135,6 +142,7 @@ export default class MainPreset extends Preset {
         new PivotTableChartPluginV2().configure({ key: VizType.PivotTable }),
         new RoseChartPlugin().configure({ key: VizType.Rose }),
         new TableChartPlugin().configure({ key: VizType.Table }),
+        new RemitaTableChartPlugin().configure({ key: VizType.RemitaTable }),
         new TimePivotChartPlugin().configure({ key: VizType.TimePivot }),
         new TimeTableChartPlugin().configure({ key: VizType.TimeTable }),
         new WordCloudChartPlugin().configure({ key: VizType.WordCloud }),

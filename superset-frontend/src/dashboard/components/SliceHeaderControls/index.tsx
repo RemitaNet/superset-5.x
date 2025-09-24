@@ -23,6 +23,7 @@ import {
   useState,
   useRef,
   RefObject,
+  useEffect,
 } from 'react';
 
 import { RouteComponentProps, useHistory } from 'react-router-dom';
@@ -197,6 +198,80 @@ const SliceHeaderControls = (
       props.forceRefresh(props.slice.slice_id, props.dashboardId);
     }
   };
+
+  // -------- Remita bulk action helpers --------
+  const parseJsonValue = (value: any) => {
+    if (!value) return [] as any[];
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        return [] as any[];
+      }
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (value instanceof Set) {
+      return Array.from(value);
+    }
+    return [] as any[];
+  };
+
+  function isIterable(obj: any): obj is Iterable<any> {
+    return obj != null && typeof obj[Symbol.iterator] === 'function';
+  }
+
+  function resolveData(data: any): any[] {
+    if (!data || !isIterable(data)) {
+      return [];
+    }
+    try {
+      const savedData = new Map<string, any>(data);
+      return Array.from(savedData.values());
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function sendCustomEvent(eventName: string, eventData: any) {
+    const customEvent = new CustomEvent(eventName, {
+      detail: eventData,
+      bubbles: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(customEvent);
+  }
+
+  function sendWindowPostMessge(messageData: any) {
+    let eventMessageData: any = {};
+    if (window.self !== window.top) {
+      eventMessageData = {
+        notification: 'publish-event',
+        data: { ...messageData, origin: 'header' },
+      };
+    } else {
+      eventMessageData = {
+        notification: 'alert-event',
+        data: { ...messageData, origin: 'header' },
+      };
+    }
+    sendCustomEvent('remita.notification', eventMessageData);
+  }
+
+  function onBulkActionClick(key: any) {
+    const savedSelectedRows = localStorage.getItem(
+      `selectedRows_${props.slice.slice_id}`,
+    );
+    const parsed: any[] = savedSelectedRows ? parseJsonValue(savedSelectedRows) : [];
+
+    sendWindowPostMessge({
+      action: 'bulk-action',
+      chartId: props.slice.slice_id,
+      actionType: key,
+      values: resolveData(parsed),
+    });
+  }
 
   const handleMenuClick = ({
     key,
@@ -377,6 +452,33 @@ const SliceHeaderControls = (
     },
   ];
 
+  // Remita bulk action state & derived menu items
+  const bulkActionLabel = (props?.formData as any)?.bulk_action_label;
+  const nonSplitActions = parseJsonValue((props?.formData as any)?.non_split_actions);
+  const splitActions = parseJsonValue((props?.formData as any)?.split_actions);
+  const [hasSelection, setHasSelection] = useState(false);
+  const isActionVisible = (action: any, selection: boolean) =>
+    !action?.boundToSelection || selection;
+
+  useEffect(() => {
+    const checkSelection = () => {
+      const savedSelectedRows = localStorage.getItem(
+        `selectedRows_${props.slice.slice_id}`,
+      );
+      const parsed: any[] = savedSelectedRows ? parseJsonValue(savedSelectedRows) : [];
+      const rowsSet = new Set(parsed);
+      setHasSelection(rowsSet.size > 0);
+    };
+    checkSelection();
+    const handler = (event: StorageEvent) => {
+      if (event.key === `selectedRows_${props.slice.slice_id}`) {
+        checkSelection();
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [props.slice.slice_id]);
+
   if (slice.description) {
     newMenuItems.push({
       key: MenuKeys.ToggleChartDescription,
@@ -544,6 +646,36 @@ const SliceHeaderControls = (
         },
       ],
     });
+  }
+
+  // Inject Remita split actions submenu
+  if (Array.isArray(splitActions) && splitActions.length > 0) {
+    newMenuItems.push({
+      type: 'submenu',
+      key: 'split-actions',
+      label: bulkActionLabel || t('Actions'),
+      children: splitActions.map((action: any) => ({
+        key: action.key,
+        disabled: action.boundToSelection && !isActionVisible(action, hasSelection),
+        label: action.label,
+        onClick: () => onBulkActionClick?.(action.key),
+      })),
+    });
+  }
+
+  // Inject non-split actions
+  if (Array.isArray(nonSplitActions) && nonSplitActions.length > 0) {
+    newMenuItems.push({ type: 'divider' });
+    nonSplitActions
+      .filter((action: any) => action?.showInSliceHeader)
+      .forEach((action: any) => {
+        newMenuItems.push({
+          key: action.key,
+          disabled: action.boundToSelection && !isActionVisible(action, hasSelection),
+          label: action.label,
+          onClick: () => onBulkActionClick?.(action.key),
+        });
+      });
   }
 
   return (
