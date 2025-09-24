@@ -23,6 +23,7 @@ import logger from './logging';
 export enum FeatureFlag {
   // PLEASE KEEP THE LIST SORTED ALPHABETICALLY
   AutoApplyDashboardFilters = 'AUTO_APPLY_DASHBOARD_FILTERS',
+  BrandedLoader = 'BRANDED_LOADER',
   FilterBarProgressIndicator = 'FILTERBAR_PROGRESS_INDICATOR',
   AlertsAttachReports = 'ALERTS_ATTACH_REPORTS',
   AlertReports = 'ALERT_REPORTS',
