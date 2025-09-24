@@ -26,7 +26,6 @@ import sys
 
 from celery.schedules import crontab
 from flask_caching.backends.filesystemcache import FileSystemCache
-from superset.tasks.types import ExecutorType, FixedExecutor
 
 logger = logging.getLogger()
 
@@ -106,20 +105,7 @@ class CeleryConfig:
 
 CELERY_CONFIG = CeleryConfig
 
-FEATURE_FLAGS = {
-    "ALERT_REPORTS": True,
-    "ALLOW_FULL_CSV_EXPORT": True,
-    "ENABLE_EXPORT": True,
-    "THUMBNAILS": True,
-    "THUMBNAILS_SQLA_LISTENERS": True,
-    # Custom Remita flag to control error detail expand/collapse
-    "ENABLE_SEE_MORE_ERROR": True,
-    # Custom Remita: control event dedupe and TTL (ms)
-    "REMITA_EVENT_DEDUPE_ENABLED": True,
-    "REMITA_EVENT_DEDUPE_TTL_MS": 1200,
-    "AUTO_APPLY_DASHBOARD_FILTERS": True,
-    "FILTERBAR_PROGRESS_INDICATOR": True,
-}
+FEATURE_FLAGS = {"ALERT_REPORTS": True}
 ALERT_REPORTS_NOTIFICATION_DRY_RUN = True
 WEBDRIVER_BASEURL = f"http://superset_app{os.environ.get('SUPERSET_APP_ROOT', '/')}/"  # When using docker compose baseurl should be http://superset_nginx{ENV{BASEPATH}}/  # noqa: E501
 # The base URL for the email report hyperlinks.
@@ -156,13 +142,3 @@ try:
     )
 except ImportError:
     logger.info("Using default Docker config...")
-
-# Configure which users/groups execute report jobs
-ALERT_REPORTS_EXECUTORS = [
-    ExecutorType.CREATOR_OWNER,
-    ExecutorType.CREATOR,
-    ExecutorType.MODIFIER_OWNER,
-    ExecutorType.MODIFIER,
-    ExecutorType.OWNER,
-    FixedExecutor("admin"),
-]
