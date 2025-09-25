@@ -367,14 +367,22 @@ class ChartDataRestApi(ChartRestApi):
                 return self.response_400(_("Empty query result"))
 
             is_csv_format = result_format == ChartDataResultFormat.CSV
+            # derive a safe base filename using chart name or provided prefix
+            safe_chart_name = get_sanitized_chart_name(form_data)
 
             if len(result["queries"]) == 1:
                 # return single query results
                 data = result["queries"][0]["data"]
                 if is_csv_format:
-                    return CsvResponse(data, headers=generate_download_headers("csv"))
+                    return CsvResponse(
+                        data,
+                        headers=generate_download_headers("csv", safe_chart_name),
+                    )
 
-                return XlsxResponse(data, headers=generate_download_headers("xlsx"))
+                return XlsxResponse(
+                    data,
+                    headers=generate_download_headers("xlsx", safe_chart_name),
+                )
 
             # return multi-query results bundled as a zip file
             def _process_data(query_data: Any) -> Any:
@@ -384,12 +392,12 @@ class ChartDataRestApi(ChartRestApi):
                 return query_data
 
             files = {
-                f"query_{idx + 1}.{result_format}": _process_data(query["data"])
+                f"{safe_chart_name}_{idx + 1}.{result_format}": _process_data(query["data"])
                 for idx, query in enumerate(result["queries"])
             }
             return Response(
                 create_zip(files),
-                headers=generate_download_headers("zip"),
+                headers=generate_download_headers("zip", safe_chart_name),
                 mimetype="application/zip",
             )
 
@@ -462,3 +470,47 @@ class ChartDataRestApi(ChartRestApi):
             return ChartDataQueryContextSchema().load(form_data)
         except KeyError as ex:
             raise ValidationError("Request is incorrect") from ex
+
+
+def get_sanitized_chart_name(form_data: dict[str, Any] | None) -> str:
+    """
+    Build a filesystem-safe base filename using a user-provided prefix
+    (file_download_prefix) or the chart's slice name, and append a timestamp.
+
+    This helps produce more descriptive filenames for CSV/XLSX/ZIP downloads.
+    """
+    import re
+    from datetime import datetime
+    from superset.daos.chart import ChartDAO
+    from superset.models.slice import Slice
+
+    chart_name: str = "chart"
+
+    try:
+        if form_data and isinstance(form_data, dict):
+            # prefer explicit prefix first
+            prefix = form_data.get("file_download_prefix") or form_data.get(
+                "form_data", {}
+            ).get("file_download_prefix")
+            if prefix:
+                chart_name = str(prefix)
+
+            # fallback to slice name when possible
+            slice_id = (
+                form_data.get("slice_id")
+                or form_data.get("form_data", {}).get("slice_id")
+            )
+            if (not prefix) and slice_id:
+                chart = ChartDAO.find_by_id(slice_id)
+                if chart and getattr(chart, "slice_name", None):
+                    chart_name = chart.slice_name
+                else:
+                    slc = Slice.get(slice_id)
+                    if slc and getattr(slc, "slice_name", None):
+                        chart_name = slc.slice_name
+    except Exception:  # best-effort only
+        pass
+
+    safe_chart_name = re.sub(r"[^\w\-_]", "_", chart_name) or "chart"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{safe_chart_name}_{timestamp}"
