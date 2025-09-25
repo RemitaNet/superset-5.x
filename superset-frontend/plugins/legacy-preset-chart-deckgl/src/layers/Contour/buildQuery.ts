@@ -16,36 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useToasts } from 'src/components/MessageToasts/withToasts';
-import { useComponentDidMount } from '@superset-ui/core';
-import type { FlashMessage } from './types';
+import { SpatialFormData, buildSpatialQuery } from '../spatialUtils';
 
-interface Props {
-  children: JSX.Element;
-  messages: FlashMessage[];
+export interface DeckContourFormData extends SpatialFormData {
+  cellSize?: string;
+  aggregation?: string;
+  contours?: Array<{
+    color: { r: number; g: number; b: number };
+    lowerThreshold: number;
+    upperThreshold?: number;
+    strokeWidth?: number;
+  }>;
 }
 
-const flashObj = {
-  info: 'addInfoToast',
-  alert: 'addDangerToast',
-  danger: 'addDangerToast',
-  warning: 'addWarningToast',
-  success: 'addSuccessToast',
-};
-
-export function FlashProvider({ children, messages }: Props) {
-  const toasts = useToasts();
-  useComponentDidMount(() => {
-    messages.forEach(message => {
-      const [type, text] = message;
-      const flash = flashObj[type];
-      const toast = toasts[flash as keyof typeof toasts];
-      if (toast) {
-        toast(text);
-      }
-    });
-  });
-  return children;
+export default function buildQuery(formData: DeckContourFormData) {
+  return buildSpatialQuery(formData);
 }
-
-export type { FlashMessage };

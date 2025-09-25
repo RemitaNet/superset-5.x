@@ -16,5 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-type FlashMessageType = 'info' | 'alert' | 'danger' | 'warning' | 'success';
-export type FlashMessage = [FlashMessageType, string];
+import { transformSpatialProps } from '../spatialUtils';
+
+export default transformSpatialProps;
